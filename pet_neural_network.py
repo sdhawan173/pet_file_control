@@ -12,7 +12,6 @@ from tqdm import tqdm  # for-loop progress bars
 import pickle as pkl  # save transformed image data to file
 from sklearn.model_selection import train_test_split  # Creates training and test data
 import time
-from sklearn.svm import SVC
 
 
 def assign_image_categories(working_directory, search_term, test_code):
@@ -420,11 +419,15 @@ def verify_tuples(all_tuples, training_inputs, test_inputs,
         print('test_targets[0]:          {}\n'.format(test_targets[0]))
 
 
-def cat_recognizer_neural_network(width, height, training_inputs, training_targets, test_inputs, test_targets,
-                                  epoch_size, learning_rates, hidden_neuron_sizes, optimizer_string, loss_string,
-                                  model_type_string, model_output_path, grayscale_boolean=False, verbose_boolean=False):
+def cat_recognizer_neural_network(category_size, width, height,
+                                  training_inputs, training_targets,
+                                  test_inputs, test_targets,
+                                  epoch_size, learning_rates,
+                                  hidden_neuron_sizes, optimizer_string,
+                                  loss_string, model_type_string, model_output_path, grayscale_boolean=False, verbose_boolean=False):
     """
     runs neural network
+    :param category_size: number of categories
     :param width: width of images
     :param height: height of images
     :param training_inputs: List of flattened image data to be used for training
@@ -445,7 +448,6 @@ def cat_recognizer_neural_network(width, height, training_inputs, training_targe
     |
     |  plot_tuple: A tuple of size 2 containing the data for loss and accuracy of the completed network
     |
-    |  history: A variable containing loss, accuracy, and all other data from model.fit -  also saved model_output_path
     |
     |  learning_rates: The array of learning rates used to create the data
     |
@@ -539,6 +541,84 @@ def cat_recognizer_neural_network(width, height, training_inputs, training_targe
                             'cat_recognizer_model - ' + model_type_string + hidden_layer_string, 'wb'))
 
 
+def run_neural_network(user_input_tuple, training_inputs, training_targets, test_inputs, test_targets,
+                       category_size):
+    """
+    A function to run all steps and functions related to the neural network
+    after training and test data have been created.
+    :param user_input_tuple:
+    :param training_inputs:
+    :param training_targets:
+    :param test_inputs:
+    :param test_targets:
+    """
+    width = user_input_tuple[1]
+    height = user_input_tuple[2]
+    grayscale_boolean = user_input_tuple[3]
+    hidden_neuron_sizes = user_input_tuple[6]
+    learning_rates = user_input_tuple[7]
+    epoch_size = user_input_tuple[8]
+    optimizer_string = user_input_tuple[9]
+    loss_string = user_input_tuple[10]
+    model_type_string = user_input_tuple[11]
+    verbose_boolean = user_input_tuple[12]
+    category_size = user_input_tuple[13]
+    colors = ['red', 'orange', 'lime', 'deepskyblue', 'magenta', 'blue', 'yellow', 'black', 'gray']
+
+    # Create strings to save plots, models and history variables
+    # for user input, use function: string_to_filepath()
+    model_output_path = os.getcwd() + '\\Cat Neural Network\\Neural Network Models'
+    if string_to_boolean(input('Current location of cat_recognizer_backup files:\n\"{}\"\n'
+                               'Do you want to update the file path? (y/n)\n'.format(model_output_path))):
+        model_output_path = (input('Enter desired file path of cat_recognizer_backup files:\n'))
+        print('New location of cat_recognizer_backup files:\n\"{}\"'.format(model_output_path))
+    plot_output_path = os.getcwd() + '\\Cat Neural Network\\Neural Network Output Graphs'
+    if string_to_boolean(input('Current location of plot output files:\n\"{}\"\n'
+                               'Do you want to update the file path? (y/n)\n'.format(plot_output_path))):
+        model_output_path = (input('Enter desired file path of plot output files:\n'))
+        print('New location of plot output files:\n\"{}\"'.format(plot_output_path))
+
+    # Prompt for running of neural network straight to plots
+    startup_choice = string_to_boolean(input('Do you want to run the network before plotting? (y/n)\n').lower())
+    if startup_choice:
+        cat_recognizer_neural_network(category_size,
+                                      width, height,
+                                      training_inputs, training_targets, test_inputs, test_targets,
+                                      epoch_size, learning_rates, hidden_neuron_sizes,
+                                      optimizer_string, loss_string, model_type_string, model_output_path,
+                                      grayscale_boolean=grayscale_boolean, verbose_boolean=verbose_boolean)
+
+    # Create list of strings representing the files in working_directory
+    print(model_output_path)
+    all_files_list = next(os.walk(model_output_path))[2]  # 2 = list of files in working_directory
+    pkl_ext = '.pkl'
+    pkl_files_list = [''] * len(all_files_list)
+    pkl_choice = 0
+    print('List of all .pkl backup files in model output path:')
+    for i in range(len(all_files_list)):  # Search through directory list to find matching string name
+        if all_files_list[i].__contains__(pkl_ext):
+            pkl_files_list[i] = (os.path.join(model_output_path, all_files_list[i]))
+            print('{} - {}'.format(i + 1, all_files_list[i]))
+    if len(all_files_list) > 0:
+        pkl_index = int(input('Select the number above corresponding to the backup to load:\n')) - 1  # -1 for 0-index
+        pkl_choice = pkl_files_list[pkl_index]
+    elif len(all_files_list) == 0:
+        print('ERROR: No history files to load')
+    time_string, \
+        plot_tuple, \
+        history, \
+        learning_rates, \
+        hidden_neuron_sizes, \
+        model_type_string = pkl.load(open(pkl_choice, 'rb'))
+    # Create loss and accuracy plots for training data and test data
+    create_plots(time_string, plot_tuple, learning_rates, hidden_neuron_sizes,
+                 model_type_string, colors, plot_output_path)
+    # Load Neural Network Model:
+    # model = keras.models.load_model(os.path.join(model_output_path, 'cat_recognizer_model'
+    #                                              + model_type_string + hidden_layer_string, 'wb'))
+    # history: A variable containing loss, accuracy, and all other data from model.fit -  also saved model_output_path
+
+
 def create_plots(time_string, plot_tuple, learning_rates, hidden_neuron_sizes, model_type_string, colors,
                  plot_output_path, show_plot=False):
     """
@@ -589,138 +669,3 @@ def create_plots(time_string, plot_tuple, learning_rates, hidden_neuron_sizes, m
             print('\n{} {} plot saved to: {}.png'.format(id_string[index], ylab_string[i], plot_save_path))
             if show_plot:
                 plt.show()
-
-
-def run_neural_network(user_input_tuple, training_inputs, training_targets, test_inputs, test_targets):
-    """
-    A function to run all steps and functions related to the neural network
-    after training and test data have been created.
-    :param user_input_tuple:
-    :param training_inputs:
-    :param training_targets:
-    :param test_inputs:
-    :param test_targets:
-    """
-    width = user_input_tuple[1]
-    height = user_input_tuple[2]
-    grayscale_boolean = user_input_tuple[3]
-    hidden_neuron_sizes = user_input_tuple[6]
-    learning_rates = user_input_tuple[7]
-    epoch_size = user_input_tuple[8]
-    optimizer_string = user_input_tuple[9]
-    loss_string = user_input_tuple[10]
-    model_type_string = user_input_tuple[11]
-    verbose_boolean = user_input_tuple[12]
-    colors = ['red', 'orange', 'lime', 'deepskyblue', 'magenta', 'blue', 'yellow', 'black', 'gray']
-
-    # Create strings to save plots, models and history variables
-    # for user input, use function: string_to_filepath()
-    model_output_path = os.getcwd() + '\\Cat Neural Network\\Neural Network Models'
-    if string_to_boolean(input('Current location of cat_recognizer_backup files:\n\"{}\"\n'
-                               'Do you want to update the file path? (y/n)\n'.format(model_output_path))):
-        model_output_path = (input('Enter desired file path of cat_recognizer_backup files:\n'))
-        print('New location of cat_recognizer_backup files:\n\"{}\"'.format(model_output_path))
-    plot_output_path = os.getcwd() + '\\Cat Neural Network\\Neural Network Output Graphs'
-    if string_to_boolean(input('Current location of plot output files:\n\"{}\"\n'
-                               'Do you want to update the file path? (y/n)\n'.format(plot_output_path))):
-        model_output_path = (input('Enter desired file path of plot output files:\n'))
-        print('New location of plot output files:\n\"{}\"'.format(plot_output_path))
-
-    # Prompt for running of neural network straight to plots
-    startup_choice = string_to_boolean(input('Do you want to run the network before plotting? (y/n)\n').lower())
-    if startup_choice:
-        cat_recognizer_neural_network(width, height,
-                                      training_inputs, training_targets, test_inputs, test_targets,
-                                      epoch_size, learning_rates, hidden_neuron_sizes,
-                                      optimizer_string, loss_string, model_type_string, model_output_path,
-                                      grayscale_boolean=grayscale_boolean, verbose_boolean=verbose_boolean)
-
-    # Create list of strings representing the files in working_directory
-    print(model_output_path)
-    all_files_list = next(os.walk(model_output_path))[2]  # 2 = list of files in working_directory
-    pkl_ext = '.pkl'
-    pkl_files_list = [''] * len(all_files_list)
-    pkl_choice = 0
-    print('List of all .pkl backup files in model output path:')
-    for i in range(len(all_files_list)):  # Search through directory list to find matching string name
-        if all_files_list[i].__contains__(pkl_ext):
-            pkl_files_list[i] = (os.path.join(model_output_path, all_files_list[i]))
-            print('{} - {}'.format(i + 1, all_files_list[i]))
-    if len(all_files_list) > 0:
-        pkl_index = int(input('Select the number above corresponding to the backup to load:\n')) - 1  # -1 for 0-index
-        pkl_choice = pkl_files_list[pkl_index]
-    elif len(all_files_list) == 0:
-        print('ERROR: No history files to load')
-    time_string, \
-        plot_tuple, \
-        history, \
-        learning_rates, \
-        hidden_neuron_sizes, \
-        model_type_string = pkl.load(open(pkl_choice, 'rb'))
-    # Create loss and accuracy plots for training data and test data
-    create_plots(time_string, plot_tuple, learning_rates, hidden_neuron_sizes,
-                 model_type_string, colors, plot_output_path)
-    # Load Neural Network Model:
-    # model = keras.models.load_model(os.path.join(model_output_path, 'cat_recognizer_model'
-    #                                              + model_type_string + hidden_layer_string, 'wb'))
-
-
-category_names = ['Piccolo', 'Gohan', 'Both', 'Neither']
-search_term_string = ['Piccolo', 'Gohan', 'Both', 'Moto G Power']
-category_size = len(category_names)
-category_values = np.array([i for i in range(len(category_names))])
-
-# create base file paths for each category found with each search term string
-file_paths = create_file_paths(category_names, search_term_string, file_type='*.jpg')
-
-user_input_tuple = user_input()
-method = user_input_tuple[0]
-width = user_input_tuple[1]
-height = user_input_tuple[2]
-grayscale_boolean = user_input_tuple[3]
-refresh_boolean = user_input_tuple[4]
-cache_name = user_input_tuple[5]
-
-# Create all_tuples
-all_tuples = []
-if refresh_boolean:
-    for i in range(category_size):
-        all_tuples.append((create_tuples(file_paths[i], category_values[i], category_names[i],
-                                         width, height, grayscale_boolean, test_code=False)))
-    pkl.dump(all_tuples, open(cache_name + '.pkl', 'wb'))  # Save all_tuples to a .pkl file
-elif not refresh_boolean:
-    all_tuples = pkl.load(open(cache_name + '.pkl', 'rb'))
-
-# Create training and test data
-print('\nCreating training and test data...')
-training_inputs, test_inputs, training_targets, test_targets = \
-    train_test_split([all_tuples[i][1] for i in range(len(all_tuples))],  # Image data[::101]
-                     [all_tuples[i][2] for i in range(len(all_tuples))],  # Category value[::101]
-                     test_size=0.25,
-                     stratify=[all_tuples[i][2] for i in range(len(all_tuples))],  # Stratify for unbalanced data[::101]
-                     random_state=523427)
-
-verify_tuples(all_tuples, training_inputs, test_inputs, training_targets, test_targets, width, height,
-              grayscale_boolean, test_code=False)
-
-if method == 'neural network':
-    run_neural_network(user_input_tuple, training_inputs, training_targets, test_inputs, test_targets)
-elif method == 'svm':
-    training_targets = np.array(training_targets) + 1
-    test_targets = np.array(test_targets) + 1
-    # # create one_hot vectors of training targets
-    # training_target_vectors = tf.one_hot(training_targets, depth=len(set(training_targets)))
-    # test_target_vectors = tf.one_hot(test_targets, depth=len(training_target_vectors[0]))
-    classifier = SVC(kernel='poly')
-    print('TIME STARTED: {}'.format(time.strftime("%Y-%m-%d %H-%M-%S")))
-    classifier.fit(training_inputs, training_targets)
-    print('TIME COMPLETED: {}'.format(time.strftime("%Y-%m-%d %H-%M-%S")))
-    print('classifier.coef_: {}'.format(classifier.coef0))
-    print('classifier.intercept_: {}'.format(classifier.intercept_))
-    print('TIME STARTED: {}'.format(time.strftime("%Y-%m-%d %H-%M-%S")))
-    print('TRAINING DATA - classifier.score_: {}'.format(classifier.score(training_inputs, training_targets)))
-    print('    TEST DATA - classifier.score_: {}'.format(classifier.score(test_inputs, test_targets)))
-    print('TIME COMPLETED: {}'.format(time.strftime("%Y-%m-%d %H-%M-%S")))
-    # test_predictions = np.sign(test_inputs @ classifier.coef_[0] + classifier.intercept_)
-    # test_accuracy = sum(test_predictions == test_targets) / len(test_targets)
-    # print("Test Accuracy = {}".format(test_accuracy))
